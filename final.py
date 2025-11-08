@@ -122,14 +122,30 @@ def summarize_text(summarizer, text, max_chunk_length=800):
     return " ".join(summaries)
 
 def qa_answer(model, question, context):
-    """Generate answer using t5-efficient-tiny"""
-    prompt = f"question: {question}  context: {context}"
+    """Generate concise, sensible answer using T5-efficient-tiny"""
+    prompt = f"Give a short and clear answer. Question: {question} Context: {context}"
     try:
-        result = model(prompt, max_length=80, min_length=5, do_sample=False)
-        return result[0]['generated_text']
+        result = model(
+            prompt,
+            max_length=40,
+            min_length=3,
+            do_sample=False,
+            num_beams=4
+        )
+        answer = result[0]['generated_text']
+
+        # Optional: Refine the answer
+        if len(answer.split()) > 25:
+            summarizer = load_summarizer()
+            refined = summarizer(answer, max_length=40, min_length=10, do_sample=False)[0]['summary_text']
+            return refined
+
+        return answer
+
     except Exception as e:
         print("Error generating answer:", e)
-        return "Unable to generate an answer."
+        return "Unable to generate a concise answer."
+
 
 def get_relevant_chunks(query, index, doc_chunks, top_k=3):
     """Retrieve most relevant text chunks via FAISS"""
@@ -315,7 +331,19 @@ else:
                     for filename, chunk, dist in results:
                         st.write(f"📄 **{filename}** — (distance: {dist:.2f})")
                         st.write(chunk[:400] + "...")
+    
+                        # 📎 Add clickable link to open/download PDF
+                        pdf_path = os.path.join(user_paths["UPLOAD_DIR"], filename)
+                        with open(pdf_path, "rb") as pdf_file:
+                            st.download_button(
+                                label=f"📥 Download {filename}",
+                                data=pdf_file,
+                                file_name=filename,
+                                mime="application/pdf"
+                            )
+
                         st.markdown("---")
+
                 else:
                     st.info("No relevant results found.")
 
@@ -385,6 +413,5 @@ else:
 
                     
                     
-
 
 
